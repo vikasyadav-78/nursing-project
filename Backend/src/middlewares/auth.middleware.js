@@ -15,7 +15,7 @@ export function verifyToken(req, res, next) {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "default_jwt_secret");
     req.user = decoded;
     next();
   } catch (error) {

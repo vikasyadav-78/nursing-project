@@ -1,5 +1,6 @@
 import {
   getCourses,
+  getCourseByIdService,
   updateCourse,
   deleteCourse,
   createCourse,
@@ -14,7 +15,7 @@ export async function addCourse(req, res) {
     const validatedData = createCourseSchema.parse(req.body);
 
     // ✅ 2️⃣ Create Course
-    await createCourse(validatedData);
+    const course = await createCourse(validatedData);
 
     await createAuditLog({
       action: "CREATE",
@@ -26,6 +27,7 @@ export async function addCourse(req, res) {
     res.json({
       success: true,
       message: "Course added successfully",
+      data: course,
     });
 
   } catch (error) {
@@ -50,7 +52,12 @@ export async function addCourse(req, res) {
 
 export async function getAllCourses(req, res) {
   try {
-    const data = await getCourses();
+    const { trending } = req.query;
+    let data = await getCourses();
+
+    if (trending === "true") {
+      data = data.filter((c) => c.isTrending === true);
+    }
 
     if (!data || data.length === 0) {
       return res.json({
@@ -66,6 +73,29 @@ export async function getAllCourses(req, res) {
       data,
     });
 
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function getCourseById(req, res) {
+  try {
+    const course = await getCourseByIdService(req.params.id);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Course fetched successfully",
+      data: course,
+    });
   } catch (error) {
     res.status(500).json({
       success: false,

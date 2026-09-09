@@ -1,43 +1,42 @@
 import fs from "fs";
 import path from "path";
-import { createBlog, getBlogs, deleteBlog } from "../services/blog.service.js";
+import { createBlog, getBlogs, getBlogByIdService, deleteBlog } from "../services/blog.service.js";
 import { db } from "../database/db.js";
 import { blogsTable } from "../models/blog.schema.js";
 import { eq } from "drizzle-orm";
 import { createAuditLog } from "../services/audit.service.js";
+import { deleteCache, invalidatePattern } from "../services/cache.service.js";
 
 export const addBlog = async (req, res) => {
   try {
     const image = req.file ? req.file.filename : null;
 
-    await createBlog({
+    const blog = await createBlog({
       title: req.body.title,
       code: req.body.code,
+      contentType: req.body.contentType || "Article",
       description: req.body.description,
       image,
+      status: req.body.status || "DRAFT",
+      authorId: req.user?.id || null,
+      authorName: req.user?.username || req.body.authorName || "Editor",
+      publishedAt: req.body.status === "PUBLISHED" ? new Date() : null,
     });
 
     await createAuditLog({
       action: "CREATE",
       module: "Blog",
-      description: `Blog created: ${req.body.title}`,
+      description: `Content created: ${req.body.title} [Status: ${req.body.status || "DRAFT"}]`,
       userAgent: req.headers["user-agent"],
     });
 
     res.status(201).json({
       success: true,
-      message: "Blog created successfully",
+      message: "Content created successfully",
+      data: blog,
     });
   } catch (error) {
     console.error("ADD BLOG ERROR:", error);
-
-    await createAuditLog({
-      action: "FAILED_CREATE",
-      module: "Blog",
-      description: `Failed to create blog: ${req.body.title || "Unknown"}`,
-      userAgent: req.headers["user-agent"],
-    });
-
     res.status(400).json({
       success: false,
       message: error.message,
@@ -47,27 +46,42 @@ export const addBlog = async (req, res) => {
 
 export const getAllBlogs = async (req, res) => {
   try {
-    const blogs = await getBlogs();
-
-    if (!blogs || blogs.length === 0) {
-      return res.json({
-        success: true,
-        message: "No blogs available",
-        data: [],
-      });
-    }
+    const { status } = req.query;
+    // Default public view gets only PUBLISHED. CMS users can pass ?status=ALL or ?status=DRAFT
+    const targetStatus = status || "PUBLISHED";
+    const blogs = await getBlogs(targetStatus);
 
     res.json({
       success: true,
       message: "Blogs fetched successfully",
-      data: blogs,
+      data: blogs || [],
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
       message: "Failed to fetch blogs",
     });
+  }
+};
+
+export const updateBlogStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ success: false, message: "Status is required" });
+
+    const updateData = { status };
+    if (status === "PUBLISHED") {
+      updateData.publishedAt = new Date();
+    }
+
+    await db.update(blogsTable).set(updateData).where(eq(blogsTable.id, id));
+    await deleteCache(`entity:blog:${id}`);
+    await invalidatePattern("blogs:list:*");
+
+    res.json({ success: true, message: `Content status updated to ${status}` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -87,6 +101,9 @@ export const updateBlog = async (req, res) => {
       .update(blogsTable)
       .set(data)
       .where(eq(blogsTable.id, req.params.id));
+
+    await deleteCache(`entity:blog:${req.params.id}`);
+    await invalidatePattern("blogs:list:*");
 
     await createAuditLog({
       action: "UPDATE",
@@ -168,14 +185,9 @@ export const removeBlog = async (req, res) => {
 export const getBlogById = async (req, res) => {
   try {
     const { id } = req.params;
+    const blog = await getBlogByIdService(id);
 
-    const blog = await db
-      .select()
-      .from(blogsTable)
-      .where(eq(blogsTable.id, id))
-      .limit(1);
-
-    if (!blog.length) {
+    if (!blog) {
       return res.status(404).json({
         success: false,
         message: "Blog not found",
@@ -184,7 +196,7 @@ export const getBlogById = async (req, res) => {
 
     res.json({
       success: true,
-      data: blog[0],
+      data: blog,
     });
   } catch (error) {
     res.status(500).json({

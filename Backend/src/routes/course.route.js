@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   addCourse,
   getAllCourses,
+  getCourseById,
   editCourse,
   removeCourse,
 } from "../controller/course.controller.js";
@@ -22,6 +23,7 @@ router.post(
 );
 
 router.get("/", getAllCourses);
+router.get("/:id", getCourseById);
 
 router.put(
   "/:id",

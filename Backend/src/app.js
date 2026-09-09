@@ -13,14 +13,19 @@ import leadRoutes from "./routes/lead.route.js";
 import auditRoutes from "./routes/audit.routes.js";
 import indiaRoutes from "./routes/india.routes.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
-
-
-// import indexRoutes from './routes/index.js';
+import examRoutes from "./routes/exam.route.js";
+import streamRoutes from "./routes/stream.route.js";
+import searchRoutes from "./routes/search.route.js";
+import universityRoutes from "./routes/university.route.js";
+import placementRoutes from "./routes/placement.route.js";
+import reviewRoutes from "./routes/review.route.js";
+import scholarshipRoutes from "./routes/scholarship.route.js";
+import activityRoutes from "./routes/activity.route.js";
 
 const app = express();
 
 // HEALTH
-app.get('/v1/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.status(200).send('OK');
 });
 
@@ -36,19 +41,24 @@ app.use(
   })
 );
 
-
 //    API
-// app.use('/v1', indexRoutes);
-app.use('/v1/auth', authRoutes); 
-app.use('/v1/user', userRoutes); 
-app.use("/v1/college", collegeRoutes);
-app.use("/v1/course", courseRoutes);
-app.use("/v1/blog", blogRoutes);
-app.use("/v1/leads", leadRoutes);
-app.use("/v1/audit-logs", auditRoutes);
-app.use("/v1/college/india", indiaRoutes);
-app.use("/v1/dashboard", dashboardRoutes);
+app.use('/api/auth', authRoutes); 
+app.use('/api/user', userRoutes); 
+app.use("/api/college", collegeRoutes);
+app.use("/api/course", courseRoutes);
+app.use("/api/blog", blogRoutes);
+app.use("/api/leads", leadRoutes);
+app.use("/api/audit-logs", auditRoutes);
+app.use("/api/college/india", indiaRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/exams", examRoutes);
+app.use("/api/stream", streamRoutes);
+app.use("/api/search", searchRoutes);
+app.use("/api/university", universityRoutes);
+app.use("/api/placement", placementRoutes);
+app.use("/api/review", reviewRoutes);
+app.use("/api/scholarship", scholarshipRoutes);
+app.use("/api/activity", activityRoutes);
 app.use("/uploads", express.static(path.join(process.cwd(), "/uploads")));
-
 
 export default app;

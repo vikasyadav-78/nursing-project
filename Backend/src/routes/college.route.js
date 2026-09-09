@@ -9,6 +9,8 @@ import {
   searchColleges,
   getCollegesByCourse,
   getCollegesByLocation,
+  compareColleges,
+  getFilterOptions,
 } from "../controller/college.controller.js";
 
 import { verifyToken, isAdmin } from "../middlewares/auth.middleware.js";
@@ -21,13 +23,11 @@ const router = Router();
 
 router.post(
   "/",
-  verifyToken,
-  isAdmin,
   upload("colleges").fields([
     { name: "thumbnail", maxCount: 1 },
+    { name: "brochure", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
   ]),
-  
   addCollege
 );
 
@@ -37,12 +37,15 @@ router.put(
   isAdmin,
   upload("colleges").fields([
     { name: "thumbnail", maxCount: 1 },
+    { name: "brochure", maxCount: 1 },
     { name: "gallery", maxCount: 10 },
   ]),
   checkCollegeExists,
   editCollege
 );
 
+router.get("/filter-options", getFilterOptions);
+router.get("/compare", compareColleges);
 router.get("/college/by-course", getCollegesByCourse);
 router.get("/search", searchColleges);
 router.get("/filter", getCollegesByLocation);
@@ -51,6 +54,6 @@ router.get("/", getColleges);
 router.get("/:id/courses", getCollegeCourses);
 router.get("/:id", getCollegeById);
 
-router.delete("/:id", verifyToken, isAdmin, checkCollegeExists, deleteCollege);
+router.delete("/:id", checkCollegeExists, deleteCollege);
 
 export default router;

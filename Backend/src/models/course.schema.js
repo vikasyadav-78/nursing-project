@@ -21,6 +21,7 @@ export const coursesTable = mysqlTable(
     duration: varchar("duration", { length: 50 }).notNull(),
     eligibility: varchar("eligibility", { length: 255 }),
 
+    isTrending: boolean("is_trending").default(false),
     isActive: boolean("is_active").default(true),
 
     createdAt: timestamp("created_at").defaultNow(),

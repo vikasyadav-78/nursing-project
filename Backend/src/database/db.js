@@ -1,10 +1,8 @@
 import { drizzle } from "drizzle-orm/mysql2";
 import { corePool } from "./mysql.js";
-import { usersTable } from "../models/user.schema.js";
+import * as schema from "../models/index.js";
 
 export const db = drizzle(corePool, {
-  schema: {
-    usersTable,
-  },
+  schema,
   mode: "default",
 });

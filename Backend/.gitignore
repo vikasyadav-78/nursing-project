@@ -1,11 +1,34 @@
-my_api_keys.txt
-
-*.log
-*.class
-
-vendor/
-node_modules/
-
-*.html
-!important.html
+# Environment Variables (Never commit secrets to GitHub)
 .env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+vendor/
+
+# User Uploaded Files & Media
+uploads/*
+!uploads/.gitkeep
+
+# Logs & Debugging
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# System & OS Files
+.DS_Store
+Thumbs.db
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary & Cache
+.temp/
+.cache/

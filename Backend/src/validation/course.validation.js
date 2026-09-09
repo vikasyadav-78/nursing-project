@@ -5,4 +5,5 @@ export const createCourseSchema = z.object({
   code: z.string().min(2, "Course code must be at least 2 characters"),
   duration: z.string().min(1, "Duration is required"),
   eligibility: z.string().optional(),
+  isTrending: z.boolean().optional(),
 });

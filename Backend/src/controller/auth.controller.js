@@ -1,5 +1,28 @@
-import { loginService } from "../services/auth.service.js";
+import { loginService, registerService, getMeService } from "../services/auth.service.js";
 import { createAuditLog } from "../services/audit.service.js";
+
+export async function register(req, res) {
+  try {
+    const result = await registerService(req.body);
+    await createAuditLog({
+      action: "REGISTER",
+      module: "Auth",
+      description: `User registered: ${result.user.email}`,
+      userAgent: req.headers["user-agent"],
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      user: result.user,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
 
 export async function login(req, res) {
   try {
@@ -22,6 +45,7 @@ export async function login(req, res) {
     res.json({
       success: true,
       message: "Login successful",
+      token: result.token,
       user: result.user,
     });
 
@@ -38,5 +62,18 @@ export async function login(req, res) {
       success: false,
       message: error.message,
     });
+  }
+}
+
+export async function getMe(req, res) {
+  try {
+    const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    const user = await getMeService(token);
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(401).json({ success: false, message: error.message });
   }
 }

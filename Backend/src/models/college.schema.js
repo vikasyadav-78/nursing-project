@@ -6,6 +6,7 @@ import {
   json,
   timestamp,
   mysqlEnum,
+  boolean,
   index,
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
@@ -54,6 +55,20 @@ export const collegesTable = mysqlTable(
     youtubeVideo: text("youtube_video"),
 
     courseIds: json("course_ids").default(sql`(JSON_ARRAY())`),
+    stream: varchar("stream", { length: 100 }), // Medical, Nursing, Engineering, Management, Computer, Law, etc.
+    rating: varchar("rating", { length: 10 }),
+    nirfRank: varchar("nirf_rank", { length: 50 }),
+    minFee: int("min_fee"),
+    maxFee: int("max_fee"),
+    tuitionFeesDisplay: varchar("tuition_fees_display", { length: 100 }),
+    examsAccepted: json("exams_accepted").default(sql`(JSON_ARRAY())`),
+    accreditation: varchar("accreditation", { length: 100 }),
+    brochureUrl: text("brochure_url"),
+    specialization: varchar("specialization", { length: 255 }),
+    programMode: varchar("program_mode", { length: 50 }),
+    courseType: varchar("course_type", { length: 50 }),
+    isFeatured: boolean("is_featured").default(false),
+    isPopular: boolean("is_popular").default(false),
     createdAt: timestamp("created_at").defaultNow(),
   },
 
