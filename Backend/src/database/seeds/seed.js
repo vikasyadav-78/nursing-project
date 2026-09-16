@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
-
-import { db } from "../db.js";
-import { usersTable } from "../../models/user.schema.js";
+import { prisma } from "../prisma.js";
 
 console.log("🚀 Seed file started...");
 
@@ -13,32 +10,32 @@ console.log("🚀 Seed file started...");
 
     console.log("🔍 Checking existing user...");
 
-    const existing = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.username, "admin"));
+    const existing = await prisma.user.findFirst({
+      where: { username: "admin" },
+    });
 
     const hash = await bcrypt.hash("admin@123", 10);
 
-    if (existing.length > 0) {
-      await db.update(usersTable)
-        .set({ email: "admin@nursing.com", password: hash })
-        .where(eq(usersTable.username, "admin"));
+    if (existing) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { email: "admin@nursing.com", password: hash },
+      });
       console.log("✅ Admin password reset to admin@123");
       process.exit(0);
     }
 
-    await db.insert(usersTable).values({
-      id: randomUUID(),
-      username: "admin",
-      firstName: "Nursing",
-      lastName: "Admin",
-      email,
-      password: hash,
-      role: "admin",
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    await prisma.user.create({
+      data: {
+        id: randomUUID(),
+        username: "admin",
+        firstName: "Nursing",
+        lastName: "Admin",
+        email,
+        password: hash,
+        role: "admin",
+        isActive: true,
+      },
     });
 
     console.log("✅ Admin created successfully");
@@ -46,5 +43,8 @@ console.log("🚀 Seed file started...");
   } catch (err) {
     console.error("❌ Seed error:", err);
     process.exit(1);
+  } finally {
+    await prisma.$disconnect();
   }
 })();
+

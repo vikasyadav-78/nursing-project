@@ -1,52 +1,58 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { eq } from "drizzle-orm";
-
-import { usersTable } from "../models/user.schema.js";
-import { db } from "../database/db.js";
+import { prisma } from "../database/prisma.js";
 
 export async function registerService({ username, firstName, lastName, email, password, role }) {
-  const existingUsers = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.email, email));
+  const existingUser = await prisma.user.findFirst({
+    where: { email },
+  });
 
-  if (existingUsers.length > 0) {
+  if (existingUser) {
     throw new Error("User with this email already exists");
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  await db.insert(usersTable).values({
-    username: username || email.split("@")[0],
-    firstName: firstName || "User",
-    lastName: lastName || "",
-    email,
-    password: hashedPassword,
-    role: role || "admin",
+  const newUser = await prisma.user.create({
+    data: {
+      username: username || email.split("@")[0],
+      firstName: firstName || "User",
+      lastName: lastName || "",
+      email,
+      password: hashedPassword,
+      role: role || "admin",
+    },
   });
 
   return {
     user: {
-      username,
-      email,
-      role: role || "admin",
+      id: newUser.id,
+      username: newUser.username,
+      email: newUser.email,
+      role: newUser.role,
     },
   };
 }
 
-export async function loginService({ email, password }) {
-  
-  const users = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.email, email));
-
-  if (users.length === 0) {
-    throw new Error("User not found");
+export async function loginService({ email, username, emailOrMobile, password }) {
+  const identifier = email || username || emailOrMobile;
+  if (!identifier) {
+    throw new Error("Email, username, or mobile number is required");
   }
 
-  const user = users[0];
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: identifier },
+        { username: identifier },
+        { mobile: identifier },
+      ],
+    },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
@@ -75,11 +81,14 @@ export async function loginService({ email, password }) {
 
 export async function getMeService(token) {
   const decoded = jwt.verify(token, process.env.JWT_SECRET || "default_jwt_secret");
-  const users = await db.select().from(usersTable).where(eq(usersTable.id, decoded.id));
-  if (users.length === 0) {
+  const user = await prisma.user.findUnique({
+    where: { id: decoded.id },
+  });
+
+  if (!user) {
     throw new Error("User not found");
   }
-  const user = users[0];
-  delete user.password;
-  return user;
+
+  const { password, ...userWithoutPassword } = user;
+  return userWithoutPassword;
 }

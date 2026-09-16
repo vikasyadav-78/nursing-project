@@ -7,14 +7,16 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "db:generate": "npx drizzle-kit generate --config src/database/drizzle.config.js",
-    "db:migrate": "npx drizzle-kit migrate --config src/database/drizzle.config.js",
-    "seed": "node --watch src/database/seeds/seed.js"
+    "db:push": "npx prisma db push --accept-data-loss",
+    "db:setup": "npx prisma db push --accept-data-loss && node src/database/seeds/seed.js",
+    "db:generate": "npx prisma generate",
+    "seed": "node src/database/seeds/seed.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "axios": "^1.13.4",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
@@ -22,7 +24,6 @@
     "cors": "^2.8.6",
     "country-state-city": "^3.2.1",
     "dotenv": "^17.2.3",
-    "drizzle-orm": "^0.45.1",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "ioredis": "^6.0.0",
@@ -34,6 +35,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.8"
+    "prisma": "^6.19.3"
   }
 }

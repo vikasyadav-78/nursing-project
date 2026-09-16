@@ -1,9 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { createBlog, getBlogs, getBlogByIdService, deleteBlog } from "../services/blog.service.js";
-import { db } from "../database/db.js";
-import { blogsTable } from "../models/blog.schema.js";
-import { eq } from "drizzle-orm";
+import { prisma } from "../database/prisma.js";
 import { createAuditLog } from "../services/audit.service.js";
 import { deleteCache, invalidatePattern } from "../services/cache.service.js";
 
@@ -67,6 +65,7 @@ export const getAllBlogs = async (req, res) => {
 export const updateBlogStatus = async (req, res) => {
   try {
     const { id } = req.params;
+    const blogId = Number(id);
     const { status } = req.body;
     if (!status) return res.status(400).json({ success: false, message: "Status is required" });
 
@@ -75,7 +74,10 @@ export const updateBlogStatus = async (req, res) => {
       updateData.publishedAt = new Date();
     }
 
-    await db.update(blogsTable).set(updateData).where(eq(blogsTable.id, id));
+    await prisma.blog.update({
+      where: { id: blogId },
+      data: updateData,
+    });
     await deleteCache(`entity:blog:${id}`);
     await invalidatePattern("blogs:list:*");
 
@@ -87,6 +89,8 @@ export const updateBlogStatus = async (req, res) => {
 
 export const updateBlog = async (req, res) => {
   try {
+    const { id } = req.params;
+    const blogId = Number(id);
     const image = req.file?.filename;
 
     const data = {
@@ -97,18 +101,18 @@ export const updateBlog = async (req, res) => {
 
     if (image) data.image = image;
 
-    await db
-      .update(blogsTable)
-      .set(data)
-      .where(eq(blogsTable.id, req.params.id));
+    await prisma.blog.update({
+      where: { id: blogId },
+      data,
+    });
 
-    await deleteCache(`entity:blog:${req.params.id}`);
+    await deleteCache(`entity:blog:${id}`);
     await invalidatePattern("blogs:list:*");
 
     await createAuditLog({
       action: "UPDATE",
       module: "Blog",
-      description: `Blog updated: ID ${req.params.id}`,
+      description: `Blog updated: ID ${id}`,
       userAgent: req.headers["user-agent"],
     });
 
@@ -132,31 +136,33 @@ export const updateBlog = async (req, res) => {
 
 export const removeBlog = async (req, res) => {
   try {
-    const blog = await db
-      .select()
-      .from(blogsTable)
-      .where(eq(blogsTable.id, req.params.id));
+    const { id } = req.params;
+    const blogId = Number(id);
 
-    if (!blog.length) {
+    const blog = await prisma.blog.findUnique({
+      where: { id: blogId },
+    });
+
+    if (!blog) {
       return res.status(404).json({
         success: false,
         message: "Blog not found",
       });
     }
 
-    if (blog[0].image) {
-      const imgPath = path.join("uploads/blogs", blog[0].image);
+    if (blog.image) {
+      const imgPath = path.join("uploads/blogs", blog.image);
       if (fs.existsSync(imgPath)) {
         fs.unlinkSync(imgPath);
       }
     }
 
-    await deleteBlog(req.params.id);
+    await deleteBlog(blogId);
 
     await createAuditLog({
       action: "DELETE",
       module: "Blog",
-      description: `Blog deleted: ${blog[0].title}`,
+      description: `Blog deleted: ${blog.title}`,
       userAgent: req.headers["user-agent"],
     });
 

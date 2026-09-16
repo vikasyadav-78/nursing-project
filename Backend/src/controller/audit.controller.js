@@ -1,14 +1,20 @@
-import { db } from "../database/db.js";
-import { auditLogsTable } from "../models/auditLog.schema.js";
+import { prisma } from "../database/prisma.js";
 
 export const getAuditLogs = async (req, res) => {
-  const logs = await db
-    .select()
-    .from(auditLogsTable)
-    .orderBy(auditLogsTable.createdAt);
+  try {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: "desc" },
+    });
 
-  res.json({
-    success: true,
-    data: logs,
-  });
+    res.json({
+      success: true,
+      data: logs,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };
+

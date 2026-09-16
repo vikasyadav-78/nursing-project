@@ -9,9 +9,6 @@ import {
 } from "../services/college.service.js";
 
 import { createAuditLog } from "../services/audit.service.js";
-import { db } from "../database/db.js";
-import { sql } from "drizzle-orm";
-import { collegesTable } from "../models/college.schema.js";
 import { upload, deleteByKey, getSignedFileUrl } from "../utils/fileUploadService.js";
 
 // Helper to extract S3 key from URL

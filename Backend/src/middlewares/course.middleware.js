@@ -1,17 +1,21 @@
-import { eq } from "drizzle-orm";
-import { db } from "../database/db.js";
-import { coursesTable } from "../models/course.schema.js";
+import { prisma } from "../database/prisma.js";
 
 export const checkCourseExists = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const course = await db
-      .select()
-      .from(coursesTable)
-      .where(eq(coursesTable.id, id));
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid course ID",
+      });
+    }
 
-    if (!course.length) {
+    const course = await prisma.course.findUnique({
+      where: { id: String(id) },
+    });
+
+    if (!course) {
       return res.status(404).json({
         success: false,
         message: "Course not found",

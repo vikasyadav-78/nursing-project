@@ -1,22 +1,23 @@
-import { db } from "../database/db.js";
-import { reviewsTable } from "../models/review.schema.js";
-import { collegesTable } from "../models/college.schema.js";
-import { eq, and, sql } from "drizzle-orm";
+import { prisma } from "../database/prisma.js";
 
 // Helper to recalculate college rating
 async function updateCollegeRating(collegeId) {
   try {
-    const approvedReviews = await db
-      .select({ rating: reviewsTable.rating })
-      .from(reviewsTable)
-      .where(and(eq(reviewsTable.collegeId, collegeId), eq(reviewsTable.status, "approved")));
+    const cId = String(collegeId);
+    const approvedReviews = await prisma.review.findMany({
+      where: {
+        collegeId: cId,
+        status: "approved",
+      },
+      select: { rating: true },
+    });
 
     if (approvedReviews.length > 0) {
       const avg = approvedReviews.reduce((acc, curr) => acc + curr.rating, 0) / approvedReviews.length;
-      await db
-        .update(collegesTable)
-        .set({ rating: avg.toFixed(1) })
-        .where(eq(collegesTable.id, collegeId));
+      await prisma.college.update({
+        where: { id: cId },
+        data: { rating: avg.toFixed(1) },
+      });
     }
   } catch (err) {
     console.error("Error updating college rating:", err);
@@ -27,10 +28,12 @@ export const getCollegeReviews = async (req, res) => {
   try {
     const { collegeId } = req.params;
     // Public API returns only approved reviews
-    const reviews = await db
-      .select()
-      .from(reviewsTable)
-      .where(and(eq(reviewsTable.collegeId, collegeId), eq(reviewsTable.status, "approved")));
+    const reviews = await prisma.review.findMany({
+      where: {
+        collegeId: String(collegeId),
+        status: "approved",
+      },
+    });
 
     res.json({ success: true, data: reviews });
   } catch (error) {
@@ -45,13 +48,15 @@ export const addReview = async (req, res) => {
       return res.status(400).json({ success: false, message: "College ID and rating are required" });
     }
 
-    await db.insert(reviewsTable).values({
-      collegeId,
-      userId: userId || req.user?.id || null,
-      userName: userName || "Student",
-      rating: Number(rating),
-      comment,
-      status: "pending", // Moderation Queue Flow
+    await prisma.review.create({
+      data: {
+        collegeId: String(collegeId),
+        userId: userId ? String(userId) : (req.user?.id ? String(req.user.id) : null),
+        userName: userName || "Student",
+        rating: Number(rating),
+        comment,
+        status: "pending", // Moderation Queue Flow
+      },
     });
 
     res.status(201).json({
@@ -69,14 +74,9 @@ export const getModerationQueue = async (req, res) => {
   try {
     const { status = "pending" } = req.query;
 
-    const reviews = await db
-      .select({
-        review: reviewsTable,
-        collegeName: collegesTable.name,
-      })
-      .from(reviewsTable)
-      .leftJoin(collegesTable, eq(reviewsTable.collegeId, collegesTable.id))
-      .where(eq(reviewsTable.status, status));
+    const reviews = await prisma.review.findMany({
+      where: { status },
+    });
 
     res.json({ success: true, count: reviews.length, data: reviews });
   } catch (error) {
@@ -87,20 +87,23 @@ export const getModerationQueue = async (req, res) => {
 export const approveReview = async (req, res) => {
   try {
     const { id } = req.params;
+    const revId = String(id);
 
-    const [existing] = await db.select().from(reviewsTable).where(eq(reviewsTable.id, id));
+    const existing = await prisma.review.findUnique({
+      where: { id: revId },
+    });
     if (!existing) {
       return res.status(404).json({ success: false, message: "Review not found" });
     }
 
-    await db
-      .update(reviewsTable)
-      .set({
+    await prisma.review.update({
+      where: { id: revId },
+      data: {
         status: "approved",
         moderatedAt: new Date(),
-        moderatedBy: req.user?.id || "admin",
-      })
-      .where(eq(reviewsTable.id, id));
+        moderatedBy: req.user?.id ? String(req.user.id) : "admin",
+      },
+    });
 
     // Auto recalculate college average rating
     await updateCollegeRating(existing.collegeId);
@@ -114,25 +117,29 @@ export const approveReview = async (req, res) => {
 export const rejectReview = async (req, res) => {
   try {
     const { id } = req.params;
+    const revId = String(id);
     const { rejectionReason } = req.body;
 
-    const [existing] = await db.select().from(reviewsTable).where(eq(reviewsTable.id, id));
+    const existing = await prisma.review.findUnique({
+      where: { id: revId },
+    });
     if (!existing) {
       return res.status(404).json({ success: false, message: "Review not found" });
     }
 
-    await db
-      .update(reviewsTable)
-      .set({
+    await prisma.review.update({
+      where: { id: revId },
+      data: {
         status: "rejected",
         rejectionReason: rejectionReason || "Violates community guidelines",
         moderatedAt: new Date(),
-        moderatedBy: req.user?.id || "admin",
-      })
-      .where(eq(reviewsTable.id, id));
+        moderatedBy: req.user?.id ? String(req.user.id) : "admin",
+      },
+    });
 
     res.json({ success: true, message: "Review rejected" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+

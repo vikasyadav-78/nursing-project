@@ -1,5 +1,4 @@
-import { db } from "../database/db.js";
-import { auditLogsTable } from "../models/auditLog.schema.js";
+import { prisma } from "../database/prisma.js";
 
 export const createAuditLog = async ({
   action,
@@ -8,11 +7,13 @@ export const createAuditLog = async ({
   userAgent,
 }) => {
   try {
-    await db.insert(auditLogsTable).values({
-      action,
-      module,
-      description,
-      userAgent,
+    await prisma.auditLog.create({
+      data: {
+        action,
+        module,
+        description,
+        userAgent,
+      },
     });
   } catch (error) {
     console.error("Audit Log Error:", error.message);

@@ -1,24 +1,29 @@
-import { eq } from "drizzle-orm";
-import { collegesTable } from "../models/college.schema.js";
-import { db } from "../database/db.js";
+import { prisma } from "../database/prisma.js";
 
 export async function checkCollegeExists(req, res, next) {
   try {
     const { collegeId, id } = req.params;
+    const targetId = collegeId || id;
 
-    const college = await db
-      .select()
-      .from(collegesTable)
-      .where(eq(collegesTable.id, collegeId || id));
+    if (!targetId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid college ID",
+      });
+    }
 
-    if (!college.length) {
+    const college = await prisma.college.findUnique({
+      where: { id: String(targetId) },
+    });
+
+    if (!college) {
       return res.status(404).json({
         success: false,
         message: "College not found",
       });
     }
 
-    req.college = college[0]; // future use
+    req.college = college;
     next();
   } catch (error) {
     res.status(500).json({ message: "Server error" });

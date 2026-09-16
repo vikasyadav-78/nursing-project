@@ -1,8 +1,4 @@
-import { db } from "../database/db.js";
-import { collegesTable } from "../models/college.schema.js";
-import { coursesTable } from "../models/course.schema.js";
-import { examsTable } from "../models/exam.schema.js";
-import { blogsTable } from "../models/blog.schema.js";
+import { prisma } from "../database/prisma.js";
 import { getOrSetCache } from "./cache.service.js";
 
 // Common Nursing Platform Synonyms
@@ -108,7 +104,7 @@ export const searchEntitiesService = async (params = {}) => {
 
     // 1. Fetch & Filter Colleges
     if (entityType === "all" || entityType === "colleges") {
-      let rawColleges = await db.select().from(collegesTable);
+      let rawColleges = await prisma.college.findMany();
 
       colleges = rawColleges.filter((c) => {
         // Filter by Location
@@ -156,7 +152,7 @@ export const searchEntitiesService = async (params = {}) => {
 
     // 2. Fetch & Filter Courses
     if (entityType === "all" || entityType === "courses") {
-      let rawCourses = await db.select().from(coursesTable);
+      let rawCourses = await prisma.course.findMany();
       courses = rawCourses.filter((crs) => {
         if (rawQuery) {
           const score = calculateScore(crs, rawQuery, searchTerms);
@@ -171,7 +167,7 @@ export const searchEntitiesService = async (params = {}) => {
 
     // 3. Fetch & Filter Exams
     if (entityType === "all" || entityType === "exams") {
-      let rawExams = await db.select().from(examsTable);
+      let rawExams = await prisma.exam.findMany();
       exams = rawExams.filter((ex) => {
         if (rawQuery) {
           const score = calculateScore(ex, rawQuery, searchTerms);
@@ -186,7 +182,7 @@ export const searchEntitiesService = async (params = {}) => {
 
     // 4. Fetch & Filter Blogs
     if (entityType === "all" || entityType === "blogs") {
-      let rawBlogs = await db.select().from(blogsTable);
+      let rawBlogs = await prisma.blog.findMany();
       blogs = rawBlogs.filter((b) => {
         if (rawQuery) {
           const score = calculateScore(b, rawQuery, searchTerms);
@@ -239,10 +235,10 @@ export const autocompleteSearchService = async (q = "", limit = 8) => {
     const searchTerms = expandQueryTerms(rawQuery);
 
     const [colleges, courses, exams, blogs] = await Promise.all([
-      db.select().from(collegesTable),
-      db.select().from(coursesTable),
-      db.select().from(examsTable),
-      db.select().from(blogsTable),
+      prisma.college.findMany(),
+      prisma.course.findMany(),
+      prisma.exam.findMany(),
+      prisma.blog.findMany(),
     ]);
 
     const suggestions = [];
@@ -315,9 +311,9 @@ export const getSupportedFilterOptionsService = async () => {
   const cacheKey = `search:supported-filters:metadata`;
 
   return await getOrSetCache(cacheKey, async () => {
-    const colleges = await db.select().from(collegesTable);
-    const courses = await db.select().from(coursesTable);
-    const exams = await db.select().from(examsTable);
+    const colleges = await prisma.college.findMany();
+    const courses = await prisma.course.findMany();
+    const exams = await prisma.exam.findMany();
 
     const statesSet = new Set();
     const citiesSet = new Set();

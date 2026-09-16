@@ -1,8 +1,5 @@
-import { drizzle } from "drizzle-orm/mysql2";
-import { corePool } from "./mysql.js";
-import * as schema from "../models/index.js";
+import { prisma } from "./prisma.js";
 
-export const db = drizzle(corePool, {
-  schema,
-  mode: "default",
-});
+export const db = prisma;
+export { prisma };
+export default prisma;

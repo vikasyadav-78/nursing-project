@@ -1,14 +1,10 @@
-import { db } from "../database/db.js";
-import { examsTable } from "../models/exam.schema.js";
-import { eq, like, or } from "drizzle-orm";
+import { prisma } from "../database/prisma.js";
 import { getOrSetCache, deleteCache, invalidatePattern } from "../services/cache.service.js";
 
 export const getExams = async (req, res) => {
   try {
     const { search, category, trending } = req.query;
-    let query = db.select().from(examsTable);
-
-    const exams = await query;
+    const exams = await prisma.exam.findMany();
     let results = exams;
 
     if (trending === "true") {
@@ -19,8 +15,8 @@ export const getExams = async (req, res) => {
       const term = search.toLowerCase();
       results = results.filter(
         (e) =>
-          e.name.toLowerCase().includes(term) ||
-          e.code.toLowerCase().includes(term)
+          (e.name && e.name.toLowerCase().includes(term)) ||
+          (e.code && e.code.toLowerCase().includes(term))
       );
     }
 
@@ -42,14 +38,13 @@ export const getExams = async (req, res) => {
 export const getExamById = async (req, res) => {
   try {
     const { id } = req.params;
+    const examId = String(id);
     const cacheKey = `entity:exam:${id}`;
 
     const exam = await getOrSetCache(cacheKey, async () => {
-      const [found] = await db
-        .select()
-        .from(examsTable)
-        .where(eq(examsTable.id, id));
-      return found || null;
+      return await prisma.exam.findUnique({
+        where: { id: examId },
+      });
     }, 3600);
 
     if (!exam) {
@@ -91,24 +86,21 @@ export const createExam = async (req, res) => {
       });
     }
 
-    await db.insert(examsTable).values({
-      name,
-      code,
-      category,
-      examLevel,
-      description,
-      applicationStartDate: applicationStartDate ? new Date(applicationStartDate) : null,
-      applicationEndDate: applicationEndDate ? new Date(applicationEndDate) : null,
-      examDate: examDate ? new Date(examDate) : null,
-      resultDate: resultDate ? new Date(resultDate) : null,
-      officialWebsite,
-      isTrending: isTrending === true || isTrending === "true",
+    const createdExam = await prisma.exam.create({
+      data: {
+        name,
+        code,
+        category,
+        examLevel,
+        description,
+        applicationStartDate: applicationStartDate ? new Date(applicationStartDate) : null,
+        applicationEndDate: applicationEndDate ? new Date(applicationEndDate) : null,
+        examDate: examDate ? new Date(examDate) : null,
+        resultDate: resultDate ? new Date(resultDate) : null,
+        officialWebsite,
+        isTrending: isTrending === true || isTrending === "true",
+      },
     });
-
-    const [createdExam] = await db
-      .select()
-      .from(examsTable)
-      .where(eq(examsTable.code, code));
 
     await invalidatePattern("exams:list:*");
 
@@ -125,7 +117,11 @@ export const createExam = async (req, res) => {
 export const updateExam = async (req, res) => {
   try {
     const { id } = req.params;
+    const examId = String(id);
     const updateData = { ...req.body };
+
+    delete updateData.id;
+    delete updateData.createdAt;
 
     if (updateData.applicationStartDate) {
       updateData.applicationStartDate = new Date(updateData.applicationStartDate);
@@ -139,8 +135,14 @@ export const updateExam = async (req, res) => {
     if (updateData.resultDate) {
       updateData.resultDate = new Date(updateData.resultDate);
     }
+    if (updateData.isTrending !== undefined) {
+      updateData.isTrending = updateData.isTrending === true || updateData.isTrending === "true";
+    }
 
-    await db.update(examsTable).set(updateData).where(eq(examsTable.id, id));
+    await prisma.exam.update({
+      where: { id: examId },
+      data: updateData,
+    });
 
     await deleteCache(`entity:exam:${id}`);
     await invalidatePattern("exams:list:*");
@@ -157,7 +159,11 @@ export const updateExam = async (req, res) => {
 export const deleteExam = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.delete(examsTable).where(eq(examsTable.id, id));
+    const examId = String(id);
+
+    await prisma.exam.delete({
+      where: { id: examId },
+    });
 
     await deleteCache(`entity:exam:${id}`);
     await invalidatePattern("exams:list:*");
@@ -170,3 +176,4 @@ export const deleteExam = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+

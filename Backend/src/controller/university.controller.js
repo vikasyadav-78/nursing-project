@@ -1,11 +1,9 @@
-import { db } from "../database/db.js";
-import { universitiesTable } from "../models/university.schema.js";
-import { eq } from "drizzle-orm";
+import { prisma } from "../database/prisma.js";
 import { getOrSetCache, deleteCache, invalidatePattern } from "../services/cache.service.js";
 
 export const getUniversities = async (req, res) => {
   try {
-    const list = await db.select().from(universitiesTable);
+    const list = await prisma.university.findMany();
     res.json({ success: true, data: list });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -17,8 +15,9 @@ export const getUniversityById = async (req, res) => {
     const { id } = req.params;
     const cacheKey = `entity:university:${id}`;
     const univ = await getOrSetCache(cacheKey, async () => {
-      const [found] = await db.select().from(universitiesTable).where(eq(universitiesTable.id, id));
-      return found || null;
+      return await prisma.university.findUnique({
+        where: { id: String(id) },
+      });
     }, 3600);
 
     if (!univ) return res.status(404).json({ success: false, message: "University not found" });
@@ -33,10 +32,18 @@ export const createUniversity = async (req, res) => {
     const { name, type, location, establishedYear } = req.body;
     if (!name) return res.status(400).json({ success: false, message: "University name is required" });
 
-    await db.insert(universitiesTable).values({ name, type, location, establishedYear });
+    await prisma.university.create({
+      data: {
+        name,
+        type,
+        location,
+        establishedYear: establishedYear ? Number(establishedYear) : null,
+      },
+    });
     await invalidatePattern("universities:list:*");
     res.status(201).json({ success: true, message: "University created successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+

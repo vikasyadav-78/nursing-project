@@ -1,34 +1,30 @@
-import { db } from "../database/db.js";
-import { usersTable } from "../models/user.schema.js";
-import { savedCollegesTable } from "../models/savedCollege.schema.js";
-import { collegesTable } from "../models/college.schema.js";
-import { eq, and } from "drizzle-orm";
+import { prisma } from "../database/prisma.js";
 import bcrypt from "bcryptjs";
 import { createAuditLog } from "../services/audit.service.js";
 
 export const getMyProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = String(req.user.id);
 
-    const [user] = await db
-      .select({
-        id: usersTable.id,
-        username: usersTable.username,
-        firstName: usersTable.firstName,
-        lastName: usersTable.lastName,
-        email: usersTable.email,
-        role: usersTable.role,
-        mobile: usersTable.mobile,
-        location: usersTable.location,
-        educationLevel: usersTable.educationLevel,
-        coursePreferences: usersTable.coursePreferences,
-        examPreferences: usersTable.examPreferences,
-        budget: usersTable.budget,
-        careerInterests: usersTable.careerInterests,
-        isActive: usersTable.isActive,
-      })
-      .from(usersTable)
-      .where(eq(usersTable.id, userId));
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        mobile: true,
+        location: true,
+        educationLevel: true,
+        coursePreferences: true,
+        examPreferences: true,
+        budget: true,
+        careerInterests: true,
+        isActive: true,
+      },
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -51,7 +47,7 @@ export const getMyProfile = async (req, res) => {
 
 export const updateMyProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = String(req.user.id);
     const {
       firstName,
       lastName,
@@ -68,10 +64,9 @@ export const updateMyProfile = async (req, res) => {
       newPassword,
     } = req.body;
 
-    const [user] = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.id, userId));
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -92,10 +87,10 @@ export const updateMyProfile = async (req, res) => {
     }
 
     const updateData = {};
-    if (firstName) updateData.firstName = firstName;
-    if (lastName) updateData.lastName = lastName;
-    if (username) updateData.username = username;
-    if (email) updateData.email = email;
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (username !== undefined) updateData.username = username;
+    if (email !== undefined) updateData.email = email;
     if (mobile !== undefined) updateData.mobile = mobile;
     if (location !== undefined) updateData.location = location;
     if (educationLevel !== undefined) updateData.educationLevel = educationLevel;
@@ -114,10 +109,10 @@ export const updateMyProfile = async (req, res) => {
       updateData.password = await bcrypt.hash(newPassword, 10);
     }
 
-    await db
-      .update(usersTable)
-      .set(updateData)
-      .where(eq(usersTable.id, userId));
+    await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
 
     await createAuditLog({
       action: "UPDATE_PROFILE",
@@ -142,25 +137,26 @@ export const updateMyProfile = async (req, res) => {
 
 export const saveCollege = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { collegeId } = req.body;
+    const userId = String(req.user.id);
+    const collegeId = String(req.body.collegeId);
 
-    if (!collegeId) {
+    if (!req.body.collegeId) {
       return res.status(400).json({ success: false, message: "College ID is required" });
     }
 
-    const existing = await db
-      .select()
-      .from(savedCollegesTable)
-      .where(and(eq(savedCollegesTable.userId, userId), eq(savedCollegesTable.collegeId, collegeId)));
+    const existing = await prisma.savedCollege.findFirst({
+      where: { userId, collegeId },
+    });
 
-    if (existing.length > 0) {
+    if (existing) {
       return res.status(400).json({ success: false, message: "College is already saved" });
     }
 
-    await db.insert(savedCollegesTable).values({
-      userId,
-      collegeId,
+    await prisma.savedCollege.create({
+      data: {
+        userId,
+        collegeId,
+      },
     });
 
     res.status(201).json({ success: true, message: "College saved successfully" });
@@ -171,17 +167,11 @@ export const saveCollege = async (req, res) => {
 
 export const getSavedColleges = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = String(req.user.id);
 
-    const saved = await db
-      .select({
-        savedId: savedCollegesTable.id,
-        savedAt: savedCollegesTable.createdAt,
-        college: collegesTable,
-      })
-      .from(savedCollegesTable)
-      .innerJoin(collegesTable, eq(savedCollegesTable.collegeId, collegesTable.id))
-      .where(eq(savedCollegesTable.userId, userId));
+    const saved = await prisma.savedCollege.findMany({
+      where: { userId },
+    });
 
     res.json({ success: true, count: saved.length, data: saved });
   } catch (error) {
@@ -191,15 +181,15 @@ export const getSavedColleges = async (req, res) => {
 
 export const removeSavedCollege = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { collegeId } = req.params;
+    const userId = String(req.user.id);
+    const collegeId = String(req.params.collegeId);
 
-    await db
-      .delete(savedCollegesTable)
-      .where(and(eq(savedCollegesTable.userId, userId), eq(savedCollegesTable.collegeId, collegeId)));
+    await prisma.savedCollege.deleteMany({
+      where: { userId, collegeId },
+    });
 
     res.json({ success: true, message: "College removed from saved list" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-};
+};
