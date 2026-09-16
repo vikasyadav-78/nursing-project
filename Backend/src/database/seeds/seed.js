@@ -16,14 +16,17 @@ console.log("🚀 Seed file started...");
     const existing = await db
       .select()
       .from(usersTable)
-      .where(eq(usersTable.email, email));
-
-    if (existing.length > 0) {
-      console.log("⚠️ Admin already exists");
-      process.exit(0);
-    }
+      .where(eq(usersTable.username, "admin"));
 
     const hash = await bcrypt.hash("admin@123", 10);
+
+    if (existing.length > 0) {
+      await db.update(usersTable)
+        .set({ email: "admin@nursing.com", password: hash })
+        .where(eq(usersTable.username, "admin"));
+      console.log("✅ Admin password reset to admin@123");
+      process.exit(0);
+    }
 
     await db.insert(usersTable).values({
       id: randomUUID(),
