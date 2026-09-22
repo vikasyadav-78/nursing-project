@@ -2,8 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
   background-color: #f8fafc;
   color: #1e293b;
   font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Hide scrollbars globally across all elements (modals, body, sidebar, divs) while preserving scroll functionality */
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+* {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
 }

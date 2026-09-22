@@ -86,14 +86,14 @@ const Scholarships = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Award className="text-purple-600" size={26} />
-            College Scholarships
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <Award className="text-purple-600 shrink-0" size={24} />
+            <span>Scholarships & Financial Aid</span>
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Manage college tuition fee waivers, merit-cum-means & state scholarships
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Manage college-specific scholarships, eligibility criteria, and financial aid packages
           </p>
         </div>
         <button
@@ -101,7 +101,7 @@ const Scholarships = () => {
             setFormData((prev) => ({ ...prev, collegeId: selectedCollegeId }));
             setShowModal(true);
           }}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm w-full sm:w-auto shrink-0"
         >
           <Plus size={18} />
           Add Scholarship
@@ -109,7 +109,7 @@ const Scholarships = () => {
       </div>
 
       {/* College Selector Filter */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
         <label className="text-xs font-semibold text-slate-700 whitespace-nowrap">
           Select College:
         </label>

@@ -75,12 +75,12 @@ const Dashboard = () => {
           icon={<BookOpen size={20} className="text-purple-600" />}
           bgColor="bg-purple-50"
         />
-        <StatCard
+        {/* <StatCard
           title="Entrance Exams"
           value={stats.exams}
           icon={<FileCheck size={20} className="text-amber-600" />}
           bgColor="bg-amber-50"
-        />
+        /> */}
         <StatCard
           title="Blogs & News"
           value={stats.blogs}

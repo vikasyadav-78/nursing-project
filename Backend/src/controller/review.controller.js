@@ -1,38 +1,31 @@
 import { prisma } from "../database/prisma.js";
 
-// Helper to recalculate college rating
-async function updateCollegeRating(collegeId) {
+// Public API: Get top 15 published agency reviews
+export const getPublicReviews = async (req, res) => {
   try {
-    const cId = String(collegeId);
-    const approvedReviews = await prisma.review.findMany({
-      where: {
-        collegeId: cId,
-        status: "approved",
-      },
-      select: { rating: true },
-    });
-
-    if (approvedReviews.length > 0) {
-      const avg = approvedReviews.reduce((acc, curr) => acc + curr.rating, 0) / approvedReviews.length;
-      await prisma.college.update({
-        where: { id: cId },
-        data: { rating: avg.toFixed(1) },
-      });
-    }
-  } catch (err) {
-    console.error("Error updating college rating:", err);
-  }
-}
-
-export const getCollegeReviews = async (req, res) => {
-  try {
-    const { collegeId } = req.params;
-    // Public API returns only approved reviews
     const reviews = await prisma.review.findMany({
       where: {
-        collegeId: String(collegeId),
         status: "approved",
       },
+      orderBy: { createdAt: "desc" },
+      take: 15,
+    });
+
+    res.json({ success: true, count: reviews.length, data: reviews });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Legacy/Compatibility API
+export const getCollegeReviews = async (req, res) => {
+  try {
+    const reviews = await prisma.review.findMany({
+      where: {
+        status: "approved",
+      },
+      orderBy: { createdAt: "desc" },
+      take: 15,
     });
 
     res.json({ success: true, data: reviews });
@@ -41,16 +34,17 @@ export const getCollegeReviews = async (req, res) => {
   }
 };
 
+// Add Agency Student Review
 export const addReview = async (req, res) => {
   try {
     const { collegeId, userId, userName, rating, comment } = req.body;
-    if (!collegeId || !rating) {
-      return res.status(400).json({ success: false, message: "College ID and rating are required" });
+    if (!rating) {
+      return res.status(400).json({ success: false, message: "Rating is required" });
     }
 
     await prisma.review.create({
       data: {
-        collegeId: String(collegeId),
+        collegeId: String(collegeId || "agency"),
         userId: userId ? String(userId) : (req.user?.id ? String(req.user.id) : null),
         userName: userName || "Student",
         rating: Number(rating),
@@ -61,14 +55,14 @@ export const addReview = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Review submitted successfully! It will be published after moderation approval.",
+      message: "Agency review submitted successfully! It will be published after admin approval.",
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// --- FLOW 3: ADMIN MODERATION QUEUE CONTROLLERS ---
+// --- ADMIN MODERATION QUEUE CONTROLLERS ---
 
 export const getModerationQueue = async (req, res) => {
   try {
@@ -76,6 +70,7 @@ export const getModerationQueue = async (req, res) => {
 
     const reviews = await prisma.review.findMany({
       where: { status },
+      orderBy: { createdAt: "desc" },
     });
 
     res.json({ success: true, count: reviews.length, data: reviews });
@@ -96,6 +91,26 @@ export const approveReview = async (req, res) => {
       return res.status(404).json({ success: false, message: "Review not found" });
     }
 
+    // Check existing approved agency reviews count to enforce max 15 limit
+    const currentApproved = await prisma.review.findMany({
+      where: {
+        status: "approved",
+      },
+      orderBy: { createdAt: "asc" }, // Oldest first
+    });
+
+    // If count >= 15, remove oldest approved review(s) to maintain max 15 limit
+    if (currentApproved.length >= 15) {
+      const toDeleteCount = currentApproved.length - 14; // Make room for 1 new review
+      const toDeleteIds = currentApproved.slice(0, toDeleteCount).map((r) => r.id);
+
+      await prisma.review.deleteMany({
+        where: {
+          id: { in: toDeleteIds },
+        },
+      });
+    }
+
     await prisma.review.update({
       where: { id: revId },
       data: {
@@ -105,10 +120,7 @@ export const approveReview = async (req, res) => {
       },
     });
 
-    // Auto recalculate college average rating
-    await updateCollegeRating(existing.collegeId);
-
-    res.json({ success: true, message: "Review approved and published!" });
+    res.json({ success: true, message: "Agency review approved and published! (Max 15 limit enforced)" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -143,3 +155,24 @@ export const rejectReview = async (req, res) => {
   }
 };
 
+export const deleteReview = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const revId = String(id);
+
+    const existing = await prisma.review.findUnique({
+      where: { id: revId },
+    });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "Review not found" });
+    }
+
+    await prisma.review.delete({
+      where: { id: revId },
+    });
+
+    res.json({ success: true, message: "Review deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

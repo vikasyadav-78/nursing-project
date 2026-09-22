@@ -1214,7 +1214,7 @@ const Colleges = () => {
 
       {/* Add / Edit College Modal Popup */}
       {(isAddModalOpen || editModal.isOpen) && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-3xl w-full p-6 shadow-xl border border-slate-200 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4 border-b pb-3">
               <h3 className="text-lg font-bold text-slate-800">
