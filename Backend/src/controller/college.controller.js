@@ -6,6 +6,7 @@ import {
   deleteCollegeService,
   getCollegeByIdService,
   getCollegeCoursesService,
+  bulkCreateCollegesService,
 } from "../services/college.service.js";
 
 import { createAuditLog } from "../services/audit.service.js";
@@ -893,5 +894,32 @@ export const getCollegesByLocation = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+export const bulkAddColleges = async (req, res) => {
+  try {
+    const { colleges } = req.body;
+    if (!colleges || !Array.isArray(colleges) || colleges.length === 0) {
+      return res.status(400).json({ success: false, message: "Valid array of colleges is required" });
+    }
+
+    const result = await bulkCreateCollegesService(colleges);
+
+    await createAuditLog({
+      action: "BULK_COLLEGES_IMPORT",
+      module: "COLLEGE",
+      description: `Bulk imported ${result.createdCount} new colleges and updated ${result.updatedCount} colleges`,
+      userAgent: req.headers["user-agent"],
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Bulk import completed! ${result.createdCount} colleges created, ${result.updatedCount} updated.`,
+      data: result,
+    });
+  } catch (error) {
+    console.error("Bulk add colleges error:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };

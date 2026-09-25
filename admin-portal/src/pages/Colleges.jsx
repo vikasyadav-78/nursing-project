@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import API from "../api/client";
 import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
 import {
   Plus,
   Search,
@@ -21,7 +22,10 @@ import {
   Upload,
   Image as ImageIcon,
   Filter,
-  RefreshCw
+  RefreshCw,
+  FileSpreadsheet,
+  UploadCloud,
+  CheckCircle,
 } from "lucide-react";
 const formatNirfDisplay = (rank) => {
   if (!rank) return "";
@@ -89,6 +93,135 @@ const Colleges = () => {
   const [slot1Program, setSlot1Program] = useState("B.Sc Nursing");
   const [slot2CollegeId, setSlot2CollegeId] = useState("");
   const [slot2Program, setSlot2Program] = useState("B.Sc Nursing");
+
+  // Bulk Import Excel state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importData, setImportData] = useState([]);
+  const [importFile, setImportFile] = useState(null);
+  const [isUploadingBulk, setIsUploadingBulk] = useState(false);
+
+  const downloadSampleTemplate = () => {
+    const headers = [
+      "name",
+      "code",
+      "city",
+      "state",
+      "district",
+      "sector",
+      "genderAcceptance",
+      "establishedYear",
+      "stream",
+      "affiliation",
+      "approvedBy",
+      "tuitionFeesDisplay",
+      "rating",
+      "description",
+    ];
+
+    const sampleRow1 = [
+      "RUHS College of Nursing",
+      "RUHS-NURS-01",
+      "Jaipur",
+      "Rajasthan",
+      "Jaipur",
+      "Government",
+      "Co-ed",
+      "1963",
+      "Nursing",
+      "RUHS Jaipur",
+      "INC Approved",
+      "₹25 K - ₹50 K",
+      "4.5",
+      "Top government nursing college in Rajasthan",
+    ];
+
+    const sampleRow2 = [
+      "AIIMS Nursing College",
+      "AIIMS-NURS-02",
+      "New Delhi",
+      "Delhi",
+      "Central Delhi",
+      "Government",
+      "Female Only",
+      "1956",
+      "Nursing",
+      "AIIMS New Delhi",
+      "INC / Govt of India",
+      "₹1.5 K - ₹5 K",
+      "4.9",
+      "Premier institute for nursing education in India",
+    ];
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        headers.join(","),
+        sampleRow1.map((v) => `"${v}"`).join(","),
+        sampleRow2.map((v) => `"${v}"`).join(","),
+      ].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "colleges_import_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Sample Excel template downloaded!");
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImportFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (!data || data.length === 0) {
+          toast.error("The uploaded file is empty or formatted incorrectly.");
+          setImportData([]);
+          return;
+        }
+
+        setImportData(data);
+        toast.success(`Successfully parsed ${data.length} college records from file!`);
+      } catch (err) {
+        console.error("Excel parse error:", err);
+        toast.error("Failed to parse file. Please upload a valid CSV or Excel file.");
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleBulkImportSubmit = async () => {
+    if (!importData || importData.length === 0) {
+      return toast.error("Please upload a valid file first.");
+    }
+
+    try {
+      setIsUploadingBulk(true);
+      const res = await API.post("/college/bulk", { colleges: importData });
+      if (res.data.success) {
+        toast.success(res.data.message || `Successfully imported ${importData.length} colleges!`);
+        setIsImportModalOpen(false);
+        setImportData([]);
+        setImportFile(null);
+        fetchColleges();
+      }
+    } catch (err) {
+      console.error("Bulk import error:", err);
+      toast.error(err.response?.data?.message || "Failed to bulk import colleges.");
+    } finally {
+      setIsUploadingBulk(false);
+    }
+  };
 
   const handleOpenAddCompareModal = () => {
     if (compareList.length >= 1) {
@@ -469,6 +602,15 @@ const Colleges = () => {
             >
               <Scale size={16} />
               <span>Compare Colleges</span>
+            </button>
+
+            {/* Import Excel / CSV Button */}
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors shadow-sm"
+            >
+              <FileSpreadsheet size={16} />
+              <span>Import Excel</span>
             </button>
 
             {/* Add College Button */}
@@ -1528,6 +1670,175 @@ const Colleges = () => {
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg text-sm"
               >
                 Delete College
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK IMPORT EXCEL MODAL POPUP */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl">
+                  <FileSpreadsheet size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">
+                    Bulk Import Colleges via Excel / CSV
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Upload multiple college records at once using Excel or CSV template
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setImportData([]);
+                  setImportFile(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Step 1: Download Template */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Step 1
+                </span>
+                <h4 className="text-sm font-bold text-slate-800 mt-1">Download Sample Excel Layout</h4>
+                <p className="text-xs text-slate-500">
+                  Download pre-formatted template with all columns to fill your 100+ colleges data.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={downloadSampleTemplate}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-xl text-xs border border-emerald-300 transition-colors shrink-0"
+              >
+                <Download size={15} />
+                <span>Download Template (.csv)</span>
+              </button>
+            </div>
+
+            {/* Step 2: Upload File Area */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-blue-700 uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                Step 2
+              </span>
+              <h4 className="text-sm font-bold text-slate-800">Upload Filled Excel / CSV File</h4>
+
+              <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50/50 rounded-xl p-6 text-center transition-colors relative cursor-pointer">
+                <input
+                  type="file"
+                  accept=".csv, .xlsx, .xls"
+                  onChange={handleFileUpload}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div className="space-y-2 pointer-events-none">
+                  <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                    <UploadCloud size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">
+                      {importFile ? importFile.name : "Click or drag your Excel / CSV file here to upload"}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Supports .csv, .xlsx, .xls files
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Data Preview Summary */}
+            {importData.length > 0 && (
+              <div className="space-y-3 bg-emerald-50/50 p-4 rounded-xl border border-emerald-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
+                    <CheckCircle size={16} />
+                    <span>{importData.length} College Records Ready to Import</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImportData([]);
+                      setImportFile(null);
+                    }}
+                    className="text-xs text-red-600 hover:underline font-medium"
+                  >
+                    Clear File
+                  </button>
+                </div>
+
+                {/* Small Data Preview Table */}
+                <div className="max-h-36 overflow-y-auto border rounded-lg bg-white text-xs">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-100 text-slate-600 font-bold sticky top-0 border-b">
+                      <tr>
+                        <th className="p-2">College Name</th>
+                        <th className="p-2">City</th>
+                        <th className="p-2">State</th>
+                        <th className="p-2">Sector</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importData.slice(0, 5).map((row, idx) => (
+                        <tr key={idx} className="border-b hover:bg-slate-50 text-slate-700">
+                          <td className="p-2 font-medium">{row.name || row.CollegeName || "-"}</td>
+                          <td className="p-2">{row.city || row.City || "-"}</td>
+                          <td className="p-2">{row.state || row.State || "-"}</td>
+                          <td className="p-2">{row.sector || row.Sector || "Private"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {importData.length > 5 && (
+                  <p className="text-[11px] text-slate-500 italic text-right">
+                    ...and {importData.length - 5} more records
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setImportData([]);
+                  setImportFile(null);
+                }}
+                className="px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isUploadingBulk || importData.length === 0}
+                onClick={handleBulkImportSubmit}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm"
+              >
+                {isUploadingBulk ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Importing {importData.length} Colleges...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet size={16} />
+                    <span>Upload & Process Bulk Import ({importData.length})</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

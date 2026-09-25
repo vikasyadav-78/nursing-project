@@ -11,6 +11,7 @@ import {
   getCollegesByLocation,
   compareColleges,
   getFilterOptions,
+  bulkAddColleges,
 } from "../controller/college.controller.js";
 
 import { verifyToken, isAdmin } from "../middlewares/auth.middleware.js";
@@ -20,6 +21,8 @@ import { createCollegeSchema } from "../validation/college.validation.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
 const router = Router();
+
+router.post("/bulk", verifyToken, isAdmin, bulkAddColleges);
 
 router.post(
   "/",
